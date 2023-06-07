@@ -11,10 +11,10 @@ from minio import Minio
 
 class MinioSender():
 
-    def __init__(self) -> None:
-        self.url: str = ''
-        self.access: str = ''
-        self.secret: str = ''
+    def __init__(self, url: str, access: str, secret: str) -> None:
+        self.url: str = url
+        self.access: str = access
+        self.secret: str = secret
         self.secure: bool = False
 
     def minio_client(self) -> Minio:
@@ -27,16 +27,15 @@ class MinioSender():
 
         return client
 
-    def get_file_name(self, url) -> str:
-        url_string = urlparse(url)
-        filename: str = os.path.basename(url_string.path)
+    def get_file_name(self, file_path: str) -> str:
+        filename: str = os.path.basename(urlparse(file_path).path)
         return filename
 
-    def send_csv_file(self, url_file) -> None:
-        print(f'sending: {url_file}')
+    def send_csv_file(self, file_path: str, bucket_name: str) -> None:
+        print(f'sending: {file_path} to {bucket_name} bucket!')
         client: Minio = self.minio_client()
         df = pd.read_csv(
-                str(url_file),
+                filepath_or_buffer=str(file_path),
                 encoding='iso-8859-1',
                 sep=';',
                 header=None,
@@ -48,8 +47,8 @@ class MinioSender():
 
         try:
             client.put_object(
-                    'raw',
-                    str(self.get_file_name(url_file)),
+                    bucket_name=bucket_name,
+                    object_name=str(self.get_file_name(file_path)),
                     data=csv_buffer,
                     length=len(csv_bytes),
                     content_type='application/csv'
@@ -57,12 +56,18 @@ class MinioSender():
         except Exception as exc:
             print(exc)
 
-    def send_all_csv_files(self, url) -> None:
-        folder_addr = pathlib.Path(url)
+    def send_all_csv_files(self, folder_path: str, bucket_name: str) -> None:
+        folder_addr = pathlib.Path(folder_path)
         for file in list(folder_addr.rglob('*csv')):
-            self.send_csv_file(str(file))
+            self.send_csv_file(file_path=str(file), bucket_name=bucket_name)
 
 
 if __name__ == '__main__':
-    m = MinioSender()
-    m.send_all_csv_files('')
+    minio_url = ''
+    minio_access_token = ''
+    minio_secret_token = ''
+    sender = MinioSender(url=minio_url, access=minio_access_token, secret=minio_secret_token)
+    
+    folder_path: str = '' # write here the folder path to .csv files
+    bucket_name: str = '' # wrote your bucket name here
+    sender.send_all_csv_files(folder_path=folder_path, bucket_name=bucket_name)
